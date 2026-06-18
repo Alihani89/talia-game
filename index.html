@@ -128,6 +128,12 @@
   .quiz-opt.wrong { background:linear-gradient(180deg,#ff8a8a,#ff5a5a); color:#fff; }
   .quiz-opt.disabled { pointer-events:none; }
   .quiz-fb { margin-top:14px; font-size:16px; font-weight:800; color:#5a6480; min-height:20px; }
+  .quiz-timer {
+    width:50px; height:50px; line-height:50px; margin:0 auto 10px;
+    border-radius:50%; background:#eef1fb; color:#5a6480;
+    font-size:22px; font-weight:900;
+  }
+  .quiz-timer.low { background:#ffe1e1; color:#e23b3b; }
   .name-input {
     width:100%; border:2px solid #e3e7f5; border-radius:14px; padding:12px 14px;
     font-size:17px; font-weight:700; color:#39406a; text-align:center; background:#fbfcff;
@@ -204,7 +210,8 @@
 
   <div class="scrim hidden" id="quizScrim">
     <div class="card">
-      <div class="quiz-head">Oops! Answer this to keep playing</div>
+      <div class="quiz-head">Oops! Answer in 10 seconds to keep playing</div>
+      <div class="quiz-timer" id="quizTimer">10</div>
       <div class="quiz-q" id="quizQ"></div>
       <div class="quiz-opts" id="quizOpts"></div>
       <div class="quiz-fb" id="quizFb">&nbsp;</div>
@@ -224,14 +231,9 @@
 (function(){
   "use strict";
 
-  /* =====================================================================
-     SHARED LEADERBOARD SETUP
-     To let all the kids share ONE leaderboard, paste your free Firebase
-     Realtime Database URL between the quotes below, for example:
-        var LEADERBOARD_URL = "https://talia-game-default-rtdb.firebaseio.com";
-     Leave it empty ("") and each phone just keeps its own private list.
-     ===================================================================== */
-  var LEADERBOARD_URL = "";
+  /* Shared leaderboard — connected to your Supabase project (all phones share one list). */
+  var SUPABASE_URL = "https://bvyioedpannmxhhscnxc.supabase.co";
+  var SUPABASE_KEY = "sb_publishable__9VP0hucGQ3NNJyftExz-w_urRWgvbj";
 
   var canvas = document.getElementById('game');
   var ctx = canvas.getContext('2d');
@@ -319,6 +321,7 @@
   var elQuizQ = document.getElementById('quizQ');
   var elQuizOpts = document.getElementById('quizOpts');
   var elQuizFb = document.getElementById('quizFb');
+  var elQuizTimer = document.getElementById('quizTimer');
   var elOverSaves = document.getElementById('overSaves');
   var elName = document.getElementById('nameInput');
   var elLbBox = document.getElementById('lbBox');
@@ -346,24 +349,28 @@
     try { localStorage.setItem('talia_scores', JSON.stringify(arr)); } catch(e){}
     return arr;
   }
+  function lbHeaders(){ return { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' }; }
+  function lbReady(){ return !!(SUPABASE_URL && SUPABASE_KEY); }
   function lbSubmit(name, score){
     lbSaveLocal(name, score);
-    if (!LEADERBOARD_URL) return Promise.resolve();
-    var url = LEADERBOARD_URL.replace(/\/+$/, '') + '/scores.json';
+    if (!lbReady()) return Promise.resolve();
     try {
-      return fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name:name, score:score, ts:Date.now() }) }).catch(function(){});
+      return fetch(SUPABASE_URL + '/rest/v1/scores', {
+        method: 'POST',
+        headers: Object.assign(lbHeaders(), { Prefer: 'return=minimal' }),
+        body: JSON.stringify({ name: name, score: score, game: 'dash' })
+      }).catch(function(){});
     } catch(e){ return Promise.resolve(); }
   }
   function lbFetch(){
-    if (!LEADERBOARD_URL) return Promise.resolve(lbLoadLocal().slice(0, 10));
-    var url = LEADERBOARD_URL.replace(/\/+$/, '') + '/scores.json';
+    if (!lbReady()) return Promise.resolve(lbLoadLocal().slice(0, 10));
     try {
-      return fetch(url).then(function(r){ return r.json(); }).then(function(data){
-        var arr = [];
-        if (data){ for (var k in data){ var e = data[k]; if (e && typeof e.score === 'number') arr.push({ name: e.name || 'Player', score: e.score }); } }
-        arr.sort(function(a,b){ return b.score - a.score; });
-        return arr.slice(0, 10);
-      }).catch(function(){ return lbLoadLocal().slice(0, 10); });
+      return fetch(SUPABASE_URL + '/rest/v1/scores?select=name,score&order=score.desc&limit=10', { headers: lbHeaders() })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          if (!Array.isArray(data)) return lbLoadLocal().slice(0, 10);
+          return data.map(function(e){ return { name: e.name || 'Player', score: e.score | 0 }; });
+        }).catch(function(){ return lbLoadLocal().slice(0, 10); });
     } catch(e){ return Promise.resolve(lbLoadLocal().slice(0, 10)); }
   }
   function renderLeaderboard(box, myName, myScore){
@@ -555,6 +562,7 @@
     elLevel.style.display = 'none';
   }
   function gameOver(){
+    stopQuizTimer();
     state = 'over'; sHit(); shake = H * 0.02; quizLock = false;
     var s = Math.floor(score);
     var isBest = s > best;
@@ -628,6 +636,29 @@
     var tv = TRIVIA[(Math.random()*TRIVIA.length)|0];
     return { q: tv.q, opts: tv.opts.slice(), a: tv.a };
   }
+  var quizCountdown = null;
+  function startQuizTimer(){
+    var t = 10;
+    elQuizTimer.textContent = t;
+    elQuizTimer.classList.remove('low');
+    stopQuizTimer();
+    quizCountdown = setInterval(function(){
+      t--;
+      elQuizTimer.textContent = t > 0 ? t : 0;
+      if (t <= 3) elQuizTimer.classList.add('low');
+      if (t <= 0){ stopQuizTimer(); quizTimeUp(); }
+    }, 1000);
+  }
+  function stopQuizTimer(){ if (quizCountdown){ clearInterval(quizCountdown); quizCountdown = null; } }
+  function quizTimeUp(){
+    if (quizLock) return;
+    quizLock = true;
+    var btns = elQuizOpts.querySelectorAll('.quiz-opt');
+    for (var i = 0; i < btns.length; i++){ btns[i].classList.add('disabled'); }
+    elQuizFb.textContent = "Time's up — game over.";
+    sHit();
+    setTimeout(gameOver, 1100);
+  }
   function triggerQuiz(){
     state = 'quiz';
     quizLock = false;
@@ -648,10 +679,12 @@
         elQuizOpts.appendChild(btn);
       })(i);
     }
+    startQuizTimer();
   }
   function answerQuiz(choice, correct, btn){
     if (quizLock) return;
     quizLock = true;
+    stopQuizTimer();
     var btns = elQuizOpts.querySelectorAll('.quiz-opt');
     for (var i = 0; i < btns.length; i++){
       btns[i].classList.add('disabled');
@@ -669,6 +702,7 @@
     }
   }
   function revive(){
+    stopQuizTimer();
     saves++;
     state = 'playing';
     invuln = 1.8;
