@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tic-Tac-Toe">
+<meta name="theme-color" content="#9b8cff">
+<title>Tic-Tac-Toe</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { min-height:100%; width:100%;
+    background:linear-gradient(180deg,#cfc6ff,#9b8cff 70%,#7d4dff);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; color:#39406a; }
+  body { display:flex; align-items:center; justify-content:center; padding:22px 14px; }
+  .card { width:min(92vw,420px); background:linear-gradient(180deg,#fff,#f5f3ff);
+    border-radius:28px; padding:22px 20px; box-shadow:0 18px 50px rgba(60,40,120,.35); text-align:center; }
+  .home-link { display:inline-block; color:#7d4dff; font-weight:800; font-size:14px; text-decoration:none; margin-bottom:6px; }
+  .title { font-size:32px; font-weight:900; background:linear-gradient(180deg,#9b6bff,#6a3df0);
+    -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:4px; }
+  .sub { color:#5a6480; font-size:14px; margin-bottom:16px; }
+  .btn { display:block; width:100%; border:none; cursor:pointer; font-size:19px; font-weight:800; color:#fff;
+    padding:15px; border-radius:16px; margin:10px 0;
+    background:linear-gradient(180deg,#9b8cff,#7d4dff); box-shadow:0 6px 14px rgba(125,77,255,.35); }
+  .btn:active { transform:translateY(2px); }
+  .btn.alt { background:linear-gradient(180deg,#ffd23f,#ffb01f); color:#6a4a00; box-shadow:0 6px 14px rgba(255,176,31,.35); }
+  .btn.green { background:linear-gradient(180deg,#6be0a0,#33c47e); box-shadow:0 6px 14px rgba(51,196,126,.35); }
+  .btn.grey { background:#eceffb; color:#4a4f78; box-shadow:none; }
+  .hidden { display:none !important; }
+
+  .status { font-size:20px; font-weight:900; min-height:28px; margin:6px 0 14px; }
+  .board { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; aspect-ratio:1/1; margin:0 auto 8px; max-width:340px; }
+  .cell { background:#f1f0fb; border-radius:18px; display:flex; align-items:center; justify-content:center;
+    font-size:14vw; max-font-size:64px; font-weight:900; cursor:pointer; user-select:none; }
+  .cell.x { color:#ff5d8f; }
+  .cell.o { color:#7d4dff; }
+  .cell.win { background:#fff0a8; }
+  .code-box { font-size:40px; font-weight:900; letter-spacing:6px; color:#6a3df0; background:#f1f0fb; border-radius:16px; padding:14px; margin:10px 0; }
+  .code-input { width:100%; text-align:center; font-size:28px; font-weight:900; letter-spacing:6px; color:#6a3df0;
+    border:2px solid #e3e7f5; border-radius:14px; padding:12px; margin:10px 0; outline:none; }
+  .code-input:focus { border-color:#7d4dff; }
+  .muted { color:#8a93b2; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <a href="index.html" class="home-link">&#8249; All games</a>
+  <div class="title">Tic-Tac-Toe</div>
+
+  <!-- MODE MENU -->
+  <div id="menuScreen">
+    <div class="sub">How do you want to play?</div>
+    <button class="btn" data-mode="ai">1 Player <span style="opacity:.85;font-size:14px">(vs computer)</span></button>
+    <button class="btn alt" data-mode="local">2 Players <span style="opacity:.85;font-size:14px">(same phone)</span></button>
+    <button class="btn green" data-mode="online">Online 1-vs-1 <span style="opacity:.85;font-size:14px">(2 phones)</span></button>
+  </div>
+
+  <!-- ONLINE LOBBY -->
+  <div id="lobbyScreen" class="hidden">
+    <div class="sub">Play with a friend on another phone</div>
+    <button class="btn green" id="createBtn">Create a game</button>
+    <div class="muted">&mdash; or &mdash;</div>
+    <input id="codeInput" class="code-input" inputmode="numeric" maxlength="4" placeholder="0000">
+    <button class="btn" id="joinBtn">Join with code</button>
+    <div id="lobbyMsg" class="muted" style="min-height:18px;margin-top:6px"></div>
+    <button class="btn grey" id="lobbyBack">Back</button>
+  </div>
+
+  <!-- WAITING (host) -->
+  <div id="waitScreen" class="hidden">
+    <div class="sub">Share this code with your friend:</div>
+    <div class="code-box" id="waitCode">0000</div>
+    <div class="muted" id="waitMsg">Waiting for your friend to join&hellip;</div>
+    <button class="btn grey" id="waitCancel" style="margin-top:14px">Cancel</button>
+  </div>
+
+  <!-- GAME -->
+  <div id="gameScreen" class="hidden">
+    <div class="status" id="status">&nbsp;</div>
+    <div class="board" id="board"></div>
+    <button class="btn green hidden" id="againBtn">Play again</button>
+    <button class="btn grey" id="quitBtn">Back to menu</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var SUPABASE_URL = "https://bvyioedpannmxhhscnxc.supabase.co";
+  var SUPABASE_KEY = "sb_publishable__9VP0hucGQ3NNJyftExz-w_urRWgvbj";
+  function H(extra){ var h = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' }; if (extra) for (var k in extra) h[k] = extra[k]; return h; }
+
+  function myName(){ try { return (localStorage.getItem('talia_name') || 'Player').slice(0,12); } catch(e){ return 'Player'; } }
+  function $(id){ return document.getElementById(id); }
+  function show(id){ ['menuScreen','lobbyScreen','waitScreen','gameScreen'].forEach(function(s){ $(s).classList.toggle('hidden', s !== id); }); }
+
+  // ---- game state ----
+  var board = ['','','','','','','','',''];
+  var turn = 'X', mySym = 'X', mode = 'ai', winner = null, winLine = null;
+  var code = null, role = null, started = false, poll = null, busy = false;
+  var LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+  function checkWin(b){
+    for (var i = 0; i < LINES.length; i++){
+      var a = LINES[i][0], c = LINES[i][1], d = LINES[i][2];
+      if (b[a] && b[a] === b[c] && b[a] === b[d]) return { who: b[a], line: LINES[i] };
+    }
+    for (var j = 0; j < 9; j++){ if (!b[j]) return null; }
+    return { who: 'draw', line: null };
+  }
+
+  // ---- board UI ----
+  var boardEl = $('board');
+  (function build(){
+    for (var i = 0; i < 9; i++){
+      (function(i){
+        var c = document.createElement('div');
+        c.className = 'cell'; c.setAttribute('data-i', i);
+        c.addEventListener('click', function(){ cellTap(i); });
+        boardEl.appendChild(c);
+      })(i);
+    }
+  })();
+  function render(){
+    var cells = boardEl.children;
+    for (var i = 0; i < 9; i++){
+      var c = cells[i];
+      c.textContent = board[i] || '';
+      c.className = 'cell' + (board[i] === 'X' ? ' x' : board[i] === 'O' ? ' o' : '') + (winLine && winLine.indexOf(i) >= 0 ? ' win' : '');
+    }
+    $('againBtn').classList.toggle('hidden', !(winner && (mode !== 'online' || role === 'host')));
+    $('status').innerHTML = statusText();
+  }
+  function statusText(){
+    if (mode === 'ai'){
+      if (winner === 'draw') return "It's a draw!";
+      if (winner === 'X') return 'You win! &#127881;';
+      if (winner === 'O') return 'Computer wins';
+      return turn === 'X' ? 'Your turn (X)' : 'Computer thinking&hellip;';
+    }
+    if (mode === 'local'){
+      if (winner === 'draw') return "It's a draw!";
+      if (winner) return 'Player ' + winner + ' wins! &#127881;';
+      return 'Player ' + turn + "'s turn";
+    }
+    // online
+    if (winner === 'draw') return "It's a draw!";
+    if (winner) return winner === mySym ? 'You win! &#127881;' : 'You lose &mdash; good try!';
+    return turn === mySym ? 'Your turn (' + mySym + ')' : "Friend's turn&hellip;";
+  }
+
+  function place(i, sym){ board[i] = sym; var w = checkWin(board); if (w){ winner = w.who; winLine = w.line; } }
+
+  function cellTap(i){
+    if (winner || board[i]) return;
+    if (mode === 'ai'){
+      if (turn !== 'X') return;
+      place(i, 'X'); turn = 'O'; render();
+      if (!winner){ setTimeout(function(){ aiMove(); turn = 'X'; render(); }, 380); }
+    } else if (mode === 'local'){
+      place(i, turn); turn = (turn === 'X' ? 'O' : 'X'); render();
+    } else if (mode === 'online'){
+      if (turn !== mySym || busy) return;
+      place(i, mySym); turn = (mySym === 'X' ? 'O' : 'X'); render();
+      pushState();
+    }
+  }
+  function aiMove(){
+    var m = findBest('O'); if (m < 0) m = findBest('X');
+    if (m < 0 && !board[4]) m = 4;
+    if (m < 0){ var cor = [0,2,6,8].filter(function(k){ return !board[k]; }); if (cor.length) m = cor[(Math.random()*cor.length)|0]; }
+    if (m < 0){ var e = []; for (var k = 0; k < 9; k++) if (!board[k]) e.push(k); if (e.length) m = e[(Math.random()*e.length)|0]; }
+    if (m >= 0) place(m, 'O');
+  }
+  function findBest(sym){
+    for (var i = 0; i < 9; i++){ if (!board[i]){ board[i] = sym; var w = checkWin(board); board[i] = ''; if (w && w.who === sym) return i; } }
+    return -1;
+  }
+
+  function reset(startTurn){ board = ['','','','','','','','','']; winner = null; winLine = null; turn = startTurn || 'X'; }
+
+  // ---- menu / mode ----
+  Array.prototype.forEach.call(document.querySelectorAll('#menuScreen .btn'), function(b){
+    b.addEventListener('click', function(){
+      mode = b.getAttribute('data-mode');
+      if (mode === 'online'){ show('lobbyScreen'); $('lobbyMsg').textContent = ''; $('codeInput').value = ''; return; }
+      reset('X'); mySym = 'X'; render(); show('gameScreen');
+    });
+  });
+  $('quitBtn').addEventListener('click', function(){ stopPoll(); show('menuScreen'); });
+  $('againBtn').addEventListener('click', function(){
+    if (mode === 'online'){ reset(role === 'host' ? 'X' : 'X'); pushState(); render(); }
+    else { reset('X'); render(); }
+  });
+
+  // ---- online: rooms via Supabase ----
+  function roomUrl(c){ return SUPABASE_URL + '/rest/v1/rooms?code=eq.' + encodeURIComponent(c); }
+  function roomCreate(c, st){ return fetch(SUPABASE_URL + '/rest/v1/rooms', { method:'POST', headers:H({ Prefer:'return=minimal' }), body: JSON.stringify({ code:c, state:st }) }); }
+  function roomGet(c){ return fetch(roomUrl(c) + '&select=state', { headers:H() }).then(function(r){ return r.json(); }).then(function(a){ return (a && a[0]) ? a[0].state : null; }); }
+  function roomSet(c, st){ return fetch(roomUrl(c), { method:'PATCH', headers:H({ Prefer:'return=minimal' }), body: JSON.stringify({ state:st, updated_at:new Date().toISOString() }) }); }
+
+  function snapshot(){ return { board:board, turn:turn, winner:winner, winLine:winLine, host:hostName, guest:guestName }; }
+  var hostName = null, guestName = null;
+  function pushState(){ if (!code) return; busy = true; roomSet(code, snapshot()).then(function(){ busy = false; }).catch(function(){ busy = false; }); }
+
+  function applyRemote(st){
+    if (!st) return;
+    board = st.board || board; turn = st.turn || turn; winner = (st.winner === undefined ? winner : st.winner);
+    winLine = st.winLine || null; hostName = st.host || hostName; guestName = st.guest || guestName;
+    if (role === 'host' && !started && guestName){ started = true; show('gameScreen'); }
+    render();
+  }
+  function startPoll(){ stopPoll(); poll = setInterval(function(){ if (!code) return; roomGet(code).then(applyRemote).catch(function(){}); }, 1300); }
+  function stopPoll(){ if (poll){ clearInterval(poll); poll = null; } code = null; role = null; started = false; }
+
+  $('lobbyBack').addEventListener('click', function(){ stopPoll(); show('menuScreen'); });
+  $('waitCancel').addEventListener('click', function(){ stopPoll(); show('menuScreen'); });
+
+  $('createBtn').addEventListener('click', function(){
+    role = 'host'; mySym = 'X'; started = false; hostName = myName(); guestName = null;
+    reset('X');
+    code = String(Math.floor(1000 + Math.random() * 9000));
+    $('waitCode').textContent = code; $('waitMsg').innerHTML = 'Waiting for your friend to join&hellip;';
+    show('waitScreen');
+    roomCreate(code, snapshot()).then(function(r){
+      if (!r.ok && r.status === 409){ code = String(Math.floor(1000 + Math.random()*9000)); $('waitCode').textContent = code; return roomCreate(code, snapshot()); }
+    }).then(function(){ startPoll(); }).catch(function(){ $('waitMsg').textContent = 'Could not create game. Try again.'; });
+  });
+
+  $('joinBtn').addEventListener('click', function(){
+    var c = ($('codeInput').value || '').trim();
+    if (!/^[0-9]{4}$/.test(c)){ $('lobbyMsg').textContent = 'Enter the 4-digit code.'; return; }
+    $('lobbyMsg').textContent = 'Joining&hellip;';
+    roomGet(c).then(function(st){
+      if (!st){ $('lobbyMsg').textContent = 'Game not found. Check the code.'; return; }
+      role = 'guest'; mySym = 'O'; code = c; started = true;
+      st.guest = myName();
+      board = st.board || ['','','','','','','','','']; turn = st.turn || 'X'; winner = st.winner || null; winLine = st.winLine || null;
+      hostName = st.host; guestName = st.guest;
+      roomSet(code, st).then(function(){ startPoll(); render(); show('gameScreen'); });
+    }).catch(function(){ $('lobbyMsg').textContent = 'Could not join. Try again.'; });
+  });
+
+  show('menuScreen');
+
+  // expose a few internals for testing in non-browser environments
+  if (typeof window !== 'undefined') window.__xo = { checkWin: checkWin, findBest: findBest, place: place, get board(){ return board; }, set board(b){ board = b; }, aiMove: aiMove };
+})();
+</script>
+</body>
+</html>

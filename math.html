@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Math Speed">
+<meta name="theme-color" content="#3aa6c4">
+<title>Math Speed</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { min-height:100%; width:100%;
+    background:linear-gradient(180deg,#bfeef0,#5fd1c9 65%,#3aa6c4);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; color:#264653; }
+  body { display:flex; align-items:center; justify-content:center; padding:22px 14px; }
+  .card { width:min(92vw,420px); background:linear-gradient(180deg,#fff,#f1fbfb);
+    border-radius:28px; padding:22px 20px; box-shadow:0 18px 50px rgba(20,90,110,.35); text-align:center; }
+  .home-link { display:inline-block; color:#2a9bbd; font-weight:800; font-size:14px; text-decoration:none; margin-bottom:6px; }
+  .title { font-size:32px; font-weight:900; background:linear-gradient(180deg,#3aa6c4,#1f7f9c);
+    -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:4px; }
+  .sub { color:#5a7480; font-size:14px; margin-bottom:16px; }
+  .btn { display:block; width:100%; border:none; cursor:pointer; font-size:19px; font-weight:800; color:#fff;
+    padding:15px; border-radius:16px; margin:10px 0;
+    background:linear-gradient(180deg,#5fd1c9,#33b0a6); box-shadow:0 6px 14px rgba(51,176,166,.35); }
+  .btn:active { transform:translateY(2px); }
+  .btn.green { background:linear-gradient(180deg,#6be0a0,#33c47e); }
+  .btn.grey { background:#e9f1f3; color:#3a5560; box-shadow:none; }
+  .hidden { display:none !important; }
+
+  .scorebar { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-weight:900; }
+  .timer { font-size:22px; color:#1f7f9c; }
+  .timer.low { color:#e23b3b; }
+  .score { font-size:22px; color:#33b0a6; }
+  .vs { display:flex; justify-content:space-around; margin-bottom:8px; font-weight:900; }
+  .vs .me { color:#33b0a6; } .vs .opp { color:#ff5d8f; }
+  .problem { font-size:46px; font-weight:900; color:#264653; margin:16px 0 18px; min-height:56px; }
+  .opts { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .opt { border:none; cursor:pointer; font-size:30px; font-weight:900; color:#264653;
+    background:#eef7f8; border-radius:18px; padding:20px 8px; }
+  .opt:active { transform:translateY(2px); }
+  .opt.good { background:#6be0a0; color:#fff; } .opt.bad { background:#ff8a8a; color:#fff; }
+  .big { font-size:54px; font-weight:900; color:#1f7f9c; margin:10px 0; }
+  .code-box { font-size:40px; font-weight:900; letter-spacing:6px; color:#1f7f9c; background:#eef7f8; border-radius:16px; padding:14px; margin:10px 0; }
+  .code-input { width:100%; text-align:center; font-size:28px; font-weight:900; letter-spacing:6px; color:#1f7f9c;
+    border:2px solid #d4e7ea; border-radius:14px; padding:12px; margin:10px 0; outline:none; }
+  .muted { color:#7a949c; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <a href="index.html" class="home-link">&#8249; All games</a>
+  <div class="title">Math Speed</div>
+
+  <div id="menuScreen">
+    <div class="sub">Solve as many as you can in 30 seconds!</div>
+    <button class="btn" id="soloBtn">1 Player</button>
+    <button class="btn green" id="onlineBtn">Online 1-vs-1 <span style="opacity:.85;font-size:14px">(2 phones)</span></button>
+  </div>
+
+  <div id="lobbyScreen" class="hidden">
+    <div class="sub">Race a friend on another phone</div>
+    <button class="btn green" id="createBtn">Create a game</button>
+    <div class="muted">&mdash; or &mdash;</div>
+    <input id="codeInput" class="code-input" inputmode="numeric" maxlength="4" placeholder="0000">
+    <button class="btn" id="joinBtn">Join with code</button>
+    <div id="lobbyMsg" class="muted" style="min-height:18px;margin-top:6px"></div>
+    <button class="btn grey" id="lobbyBack">Back</button>
+  </div>
+
+  <div id="waitScreen" class="hidden">
+    <div class="sub">Share this code with your friend:</div>
+    <div class="code-box" id="waitCode">0000</div>
+    <div class="muted" id="waitMsg">Waiting for your friend&hellip;</div>
+    <button class="btn grey" id="waitCancel" style="margin-top:14px">Cancel</button>
+  </div>
+
+  <div id="countScreen" class="hidden">
+    <div class="sub">Get ready!</div>
+    <div class="big" id="countNum">3</div>
+  </div>
+
+  <div id="playScreen" class="hidden">
+    <div class="vs hidden" id="vsBar"><div class="me" id="meScore">You: 0</div><div class="opp" id="oppScore">Friend: 0</div></div>
+    <div class="scorebar"><div class="timer" id="timer">30</div><div class="score" id="scoreNow">0</div></div>
+    <div class="problem" id="problem">&nbsp;</div>
+    <div class="opts" id="opts"></div>
+  </div>
+
+  <div id="resultScreen" class="hidden">
+    <div class="title" id="resultTitle" style="font-size:30px">Time!</div>
+    <div class="big" id="resultScore">0</div>
+    <div class="muted" id="resultMsg"></div>
+    <button class="btn green" id="againBtn" style="margin-top:12px">Play again</button>
+    <button class="btn grey" id="menuBtn">Back to menu</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var SUPABASE_URL = "https://bvyioedpannmxhhscnxc.supabase.co";
+  var SUPABASE_KEY = "sb_publishable__9VP0hucGQ3NNJyftExz-w_urRWgvbj";
+  function H(extra){ var h = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' }; if (extra) for (var k in extra) h[k] = extra[k]; return h; }
+  function $(id){ return document.getElementById(id); }
+  function show(id){ ['menuScreen','lobbyScreen','waitScreen','countScreen','playScreen','resultScreen'].forEach(function(s){ $(s).classList.toggle('hidden', s !== id); }); }
+  function myName(){ try { return (localStorage.getItem('talia_name') || 'Player').slice(0,12); } catch(e){ return 'Player'; } }
+  function ri(a, b){ return a + Math.floor(Math.random() * (b - a + 1)); }
+  function shuffle(a){ for (var i = a.length - 1; i > 0; i--){ var j = (Math.random()*(i+1))|0, t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+
+  function makeProblem(){
+    var r = Math.random(), a, b, ans, q;
+    if (r < 0.45){ a = ri(1,12); b = ri(1,12); ans = a + b; q = a + ' + ' + b; }
+    else if (r < 0.8){ a = ri(2,19); b = ri(1,a); ans = a - b; q = a + ' &minus; ' + b; }
+    else { a = ri(2,9); b = ri(2,9); ans = a * b; q = a + ' &times; ' + b; }
+    var opts = [ans], guard = 0;
+    while (opts.length < 4 && guard++ < 50){ var d = ans + ri(-6,6); if (d >= 0 && opts.indexOf(d) < 0) opts.push(d); }
+    while (opts.length < 4) opts.push(ans + opts.length + 1);
+    shuffle(opts);
+    return { q:q, ans:ans, opts:opts };
+  }
+
+  var score = 0, timeLeft = 30, gameTimer = null, cur = null, mode = 'solo', locked = false;
+
+  function startGame(){
+    score = 0; timeLeft = 30; locked = false;
+    $('scoreNow').textContent = 0; $('meScore').textContent = 'You: 0';
+    $('timer').textContent = 30; $('timer').classList.remove('low');
+    $('vsBar').classList.toggle('hidden', mode !== 'online');
+    show('playScreen');
+    nextProblem();
+    if (gameTimer) clearInterval(gameTimer);
+    gameTimer = setInterval(function(){
+      timeLeft--;
+      $('timer').textContent = timeLeft > 0 ? timeLeft : 0;
+      if (timeLeft <= 5) $('timer').classList.add('low');
+      if (mode === 'online') pushScore(false);
+      if (timeLeft <= 0){ clearInterval(gameTimer); gameTimer = null; endGame(); }
+    }, 1000);
+  }
+  function nextProblem(){
+    cur = makeProblem();
+    $('problem').innerHTML = cur.q + ' = ?';
+    var box = $('opts'); box.innerHTML = '';
+    cur.opts.forEach(function(v){
+      var b = document.createElement('button');
+      b.className = 'opt'; b.textContent = v;
+      b.addEventListener('click', function(){ answer(v, b); });
+      box.appendChild(b);
+    });
+  }
+  function answer(v, btn){
+    if (locked || timeLeft <= 0) return;
+    if (v === cur.ans){ score++; $('scoreNow').textContent = score; $('meScore').textContent = 'You: ' + score; btn.classList.add('good'); locked = true; setTimeout(function(){ locked = false; nextProblem(); }, 160); }
+    else { btn.classList.add('bad'); btn.disabled = true; }
+  }
+  function endGame(){
+    if (mode === 'online'){ pushScore(true); showOnlineResult(); return; }
+    $('resultTitle').innerHTML = 'Time! &#9203;';
+    $('resultScore').textContent = score;
+    $('resultMsg').textContent = score >= 15 ? 'Amazing!' : score >= 8 ? 'Great job!' : 'Keep practicing!';
+    submitScore(score);
+    show('resultScreen');
+  }
+
+  function submitScore(s){
+    try { fetch(SUPABASE_URL + '/rest/v1/scores', { method:'POST', headers:H({ Prefer:'return=minimal' }), body: JSON.stringify({ name: myName(), score: s, game: 'math' }) }).catch(function(){}); } catch(e){}
+  }
+
+  // ---- menu ----
+  $('soloBtn').addEventListener('click', function(){ mode = 'solo'; startGame(); });
+  $('onlineBtn').addEventListener('click', function(){ mode = 'online'; $('lobbyMsg').textContent = ''; $('codeInput').value = ''; show('lobbyScreen'); });
+  $('menuBtn').addEventListener('click', function(){ stopPoll(); show('menuScreen'); });
+  $('againBtn').addEventListener('click', function(){ if (mode === 'online'){ stopPoll(); show('menuScreen'); } else { startGame(); } });
+  $('lobbyBack').addEventListener('click', function(){ stopPoll(); show('menuScreen'); });
+  $('waitCancel').addEventListener('click', function(){ stopPoll(); show('menuScreen'); });
+
+  // ---- online rooms ----
+  var code = null, role = null, poll = null, started = false, remote = {}, lastWrite = 0;
+  function roomUrl(c){ return SUPABASE_URL + '/rest/v1/rooms?code=eq.' + encodeURIComponent(c); }
+  function roomCreate(c, st){ return fetch(SUPABASE_URL + '/rest/v1/rooms', { method:'POST', headers:H({ Prefer:'return=minimal' }), body: JSON.stringify({ code:c, state:st }) }); }
+  function roomGet(c){ return fetch(roomUrl(c) + '&select=state', { headers:H() }).then(function(r){ return r.json(); }).then(function(a){ return (a && a[0]) ? a[0].state : null; }); }
+  function roomSet(c, st){ return fetch(roomUrl(c), { method:'PATCH', headers:H({ Prefer:'return=minimal' }), body: JSON.stringify({ state:st, updated_at:new Date().toISOString() }) }); }
+  function myF(){ return role === 'host' ? 'hostScore' : 'guestScore'; }
+  function oppF(){ return role === 'host' ? 'guestScore' : 'hostScore'; }
+  function myDone(){ return role === 'host' ? 'hostDone' : 'guestDone'; }
+  function oppDone(){ return role === 'host' ? 'guestDone' : 'hostDone'; }
+
+  function snapshot(){
+    var st = { host: remote.host, guest: remote.guest, started: remote.started,
+               hostScore: remote.hostScore|0, guestScore: remote.guestScore|0,
+               hostDone: !!remote.hostDone, guestDone: !!remote.guestDone, startAt: remote.startAt || null };
+    return st;
+  }
+  function pushScore(done){
+    if (!code) return;
+    var now = Date.now();
+    if (!done && now - lastWrite < 900) return;
+    lastWrite = now;
+    var st = snapshot();
+    st[myF()] = score; if (done) st[myDone()] = true;
+    remote = st;
+    roomSet(code, st).catch(function(){});
+  }
+  function startPoll(){ stopPoll2(); poll = setInterval(function(){ if (!code) return; roomGet(code).then(onRemote).catch(function(){}); }, 1000); }
+  function stopPoll2(){ if (poll){ clearInterval(poll); poll = null; } }
+  function stopPoll(){ stopPoll2(); if (gameTimer){ clearInterval(gameTimer); gameTimer = null; } code = null; role = null; started = false; remote = {}; }
+
+  function onRemote(st){
+    if (!st) return;
+    // merge, preserving my own live fields
+    var mine = role ? st[myF()] : null;
+    remote = st;
+    if (role === 'host' && !started && st.guest){ beginCountdown(st); }
+    if (role === 'guest' && !started && st.started){ beginCountdown(st); }
+    // update opponent score display
+    if ($('oppScore')) $('oppScore').textContent = 'Friend: ' + (st[oppF()] | 0);
+    // if both done, show result
+    if (started && st.hostDone && st.guestDone){ showOnlineResult(); }
+  }
+  function beginCountdown(st){
+    started = true;
+    if (role === 'host'){ st.started = true; st.startAt = Date.now(); remote = st; roomSet(code, st).catch(function(){}); }
+    var n = 3; show('countScreen'); $('countNum').textContent = n;
+    var ci = setInterval(function(){ n--; if (n <= 0){ clearInterval(ci); $('countNum').textContent = 'GO!'; setTimeout(function(){ startGame(); }, 500); } else { $('countNum').textContent = n; } }, 800);
+  }
+  var resultShown = false;
+  function showOnlineResult(){
+    if (resultShown) return; resultShown = true;
+    stopPoll2();
+    var me = score, opp = remote[oppF()] | 0;
+    $('resultScore').textContent = me + ' - ' + opp;
+    if (me > opp){ $('resultTitle').innerHTML = 'You win! &#127881;'; $('resultMsg').textContent = 'You: ' + me + ' &middot; Friend: ' + opp; }
+    else if (me < opp){ $('resultTitle').innerHTML = 'You lose'; $('resultMsg').textContent = 'You: ' + me + ' &middot; Friend: ' + opp; }
+    else { $('resultTitle').innerHTML = "It's a tie!"; $('resultMsg').textContent = 'Both got ' + me; }
+    submitScore(me);
+    show('resultScreen');
+  }
+
+  $('createBtn').addEventListener('click', function(){
+    role = 'host'; started = false; resultShown = false;
+    remote = { host: myName(), guest: null, started: false, hostScore: 0, guestScore: 0, hostDone: false, guestDone: false };
+    code = String(ri(1000, 9999));
+    $('waitCode').textContent = code; $('waitMsg').innerHTML = 'Waiting for your friend&hellip;';
+    show('waitScreen');
+    roomCreate(code, remote).then(function(r){
+      if (!r.ok && r.status === 409){ code = String(ri(1000,9999)); $('waitCode').textContent = code; return roomCreate(code, remote); }
+    }).then(function(){ startPoll(); }).catch(function(){ $('waitMsg').textContent = 'Could not create. Try again.'; });
+  });
+  $('joinBtn').addEventListener('click', function(){
+    var c = ($('codeInput').value || '').trim();
+    if (!/^[0-9]{4}$/.test(c)){ $('lobbyMsg').textContent = 'Enter the 4-digit code.'; return; }
+    $('lobbyMsg').textContent = 'Joining&hellip;';
+    roomGet(c).then(function(st){
+      if (!st){ $('lobbyMsg').textContent = 'Game not found. Check the code.'; return; }
+      role = 'guest'; code = c; started = false; resultShown = false;
+      st.guest = myName();
+      remote = st;
+      roomSet(code, st).then(function(){ startPoll(); });
+    }).catch(function(){ $('lobbyMsg').textContent = 'Could not join. Try again.'; });
+  });
+
+  show('menuScreen');
+  if (typeof window !== 'undefined') window.__math = { makeProblem: makeProblem };
+})();
+</script>
+</body>
+</html>
